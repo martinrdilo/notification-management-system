@@ -1,34 +1,26 @@
 package io.backend.notifications.controller;
 
-import java.util.Optional;
-
+import io.backend.notifications.dto.MergedNotificationsResponse;
+import io.backend.notifications.service.NotificationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import io.backend.notifications.entity.Notification;
-import io.backend.notifications.repository.NotificationRepository;
 
 @RestController
 @RequestMapping("/notifications")
 public class NotificationController {
 
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
 
-    public NotificationController(NotificationRepository notificationRepository) {
-        this.notificationRepository = notificationRepository;
+    public NotificationController(NotificationService notificationService) {
+        this.notificationService = notificationService;
     }
 
     @GetMapping("/{id}")
-    private ResponseEntity<Notification> findById(Long id) {
-        Optional<Notification> notificationOptional = notificationRepository.findById(id);
-
-        if (notificationOptional.isPresent()) {
-            return ResponseEntity.ok(notificationOptional.get());
-        }
-
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<MergedNotificationsResponse> findByUserId(@PathVariable long id) {
+        return ResponseEntity.ok(notificationService.findMergedByUserId(id));
     }
 
 }
