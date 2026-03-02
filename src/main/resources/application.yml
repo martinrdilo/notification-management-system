@@ -16,9 +16,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
 external:
   api:
-    jsonplaceholder:
+    photos:
       base-url: https://jsonplaceholder.typicode.com
 
 springdoc:
