@@ -1,34 +1,39 @@
 package io.backend.notifications.controller;
 
-import java.util.Optional;
-
+import io.backend.notifications.dto.EnrichedNotificationResponse;
+import io.backend.notifications.dto.NotificationRequest;
+import io.backend.notifications.service.NotificationService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import io.backend.notifications.entity.Notification;
-import io.backend.notifications.repository.NotificationRepository;
+import java.util.List;
 
 @RestController
 @RequestMapping("/notifications")
 public class NotificationController {
 
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
 
-    public NotificationController(NotificationRepository notificationRepository) {
-        this.notificationRepository = notificationRepository;
+    public NotificationController(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
+
+    @PostMapping
+    public ResponseEntity<EnrichedNotificationResponse> createNotification(
+            @RequestBody NotificationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(notificationService.createNotification(request));
     }
 
     @GetMapping("/{id}")
-    private ResponseEntity<Notification> findById(Long id) {
-        Optional<Notification> notificationOptional = notificationRepository.findById(id);
-
-        if (notificationOptional.isPresent()) {
-            return ResponseEntity.ok(notificationOptional.get());
-        }
-
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<EnrichedNotificationResponse> getNotificationById(@PathVariable Long id) {
+        return ResponseEntity.ok(notificationService.getNotificationById(id));
     }
 
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<EnrichedNotificationResponse>> getNotificationsByUserId(
+            @PathVariable Long userId) {
+        return ResponseEntity.ok(notificationService.getNotificationsByUserId(userId));
+    }
 }

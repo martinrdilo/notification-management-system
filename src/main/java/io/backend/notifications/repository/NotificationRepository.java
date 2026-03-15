@@ -1,8 +1,11 @@
 package io.backend.notifications.repository;
 
-import org.springframework.data.repository.CrudRepository;
 import io.backend.notifications.entity.Notification;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface NotificationRepository extends CrudRepository<Notification, Long> {
+import java.util.List;
 
+public interface NotificationRepository extends JpaRepository<Notification, Long> {
+
+    List<Notification> findAllByUserId(Long userId);
 }

@@ -1,6 +1,8 @@
 package io.backend.notifications.entity;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import io.backend.notifications.enums.Channel;
 import io.backend.notifications.enums.Status;
@@ -37,6 +39,11 @@ public class Notification {
 
     @Column
     private LocalDateTime createdAt;
+
+    @ElementCollection
+    @CollectionTable(name = "notification_attachment_ids", joinColumns = @JoinColumn(name = "notification_id"))
+    @Column(name = "attachment_id")
+    private List<Long> attachmentIds = new ArrayList<>();
 
     @PrePersist
     public void onCreate() {
@@ -98,5 +105,13 @@ public class Notification {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public List<Long> getAttachmentIds() {
+        return attachmentIds;
+    }
+
+    public void setAttachmentIds(List<Long> attachmentIds) {
+        this.attachmentIds = attachmentIds;
     }
 }
