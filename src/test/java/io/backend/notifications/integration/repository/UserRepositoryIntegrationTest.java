@@ -23,7 +23,7 @@ class UserRepositoryIntegrationTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        userRepository.deleteAll();
+        cleanDatabase();
     }
 
     @Test

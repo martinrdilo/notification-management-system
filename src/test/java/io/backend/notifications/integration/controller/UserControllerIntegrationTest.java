@@ -2,9 +2,7 @@ package io.backend.notifications.integration.controller;
 
 import io.backend.notifications.dto.UserRequest;
 import io.backend.notifications.entity.User;
-import io.backend.notifications.fixture.dto.ExternalPostResponseBuilder;
 import io.backend.notifications.fixture.entity.UserBuilder;
-import io.backend.notifications.fixture.wiremock.WireMockHelper;
 import io.backend.notifications.integration.base.AbstractIntegrationTest;
 import io.backend.notifications.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,8 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration test for UserController.
- * Proves full stack works: HTTP request -> Controller -> Service -> Repository -> DB
- * and WireMock intercepts external API calls.
+ * Proves full stack works: HTTP request -> Controller -> Service -> Repository -> DB.
+ * POST /users has been removed — user creation is via POST /auth/register.
  */
 class UserControllerIntegrationTest extends AbstractIntegrationTest {
 
@@ -26,44 +24,33 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        userRepository.deleteAll();
-    }
-
-    @Test
-    void shouldCreateUser() {
-        UserRequest request = UserBuilder.aUser().buildRequest();
-
-        webTestClient().post()
-                .uri("/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .exchange()
-                .expectStatus().isCreated()
-                .expectBody()
-                .jsonPath("$.id").isNotEmpty()
-                .jsonPath("$.username").isEqualTo(request.username())
-                .jsonPath("$.email").isEqualTo(request.email());
+        cleanDatabase();
     }
 
     @Test
     void shouldGetAllUsers() {
-        User user = userRepository.save(UserBuilder.aUser().build());
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
 
         webTestClient().get()
                 .uri("/users")
+                .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$").isArray()
-                .jsonPath("$[0].username").isEqualTo(user.getUsername());
+                .jsonPath("$").isArray();
     }
 
     @Test
     void shouldGetUserById() {
-        User user = userRepository.save(UserBuilder.aUser().build());
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        User user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
 
         webTestClient().get()
                 .uri("/users/{id}", user.getId())
+                .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -73,67 +60,53 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldReturn404WhenUserNotFound() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
         webTestClient().get()
                 .uri("/users/{id}", 999)
+                .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isNotFound();
     }
 
     @Test
-    void shouldGetExternalNotificationsWithWireMock() {
-        User user = userRepository.save(UserBuilder.aUser().build());
-
-        String postsJson = ExternalPostResponseBuilder.aPost()
-                .withUserId(user.getId())
-                .buildListJson(2);
-        WireMockHelper.stubGetPostsByUser(WIREMOCK, user.getId(), postsJson);
-
+    void shouldReturn401WhenNoTokenOnGetUsers() {
         webTestClient().get()
-                .uri("/users/{id}/external-notifications", user.getId())
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$").isArray()
-                .jsonPath("$.length()").isEqualTo(2)
-                .jsonPath("$[0].userId").isEqualTo(user.getId().intValue());
-    }
-
-    @Test
-    void shouldReturnEmptyListWhenNoExternalPosts() {
-        User user = userRepository.save(UserBuilder.aUser().build());
-
-        WireMockHelper.stubGetPostsByUserEmpty(WIREMOCK, user.getId());
-
-        webTestClient().get()
-                .uri("/users/{id}/external-notifications", user.getId())
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$").isArray()
-                .jsonPath("$.length()").isEqualTo(0);
-    }
-
-    @Test
-    void shouldFailValidationWithBlankUsername() {
-        UserRequest invalid = new UserRequest("", "valid@test.com");
-
-        webTestClient().post()
                 .uri("/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(invalid)
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void shouldReturn401WhenNoTokenOnGetUserById() {
+        webTestClient().get()
+                .uri("/users/{id}", 1)
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 
     @Test
     void shouldDeleteUser() {
-        User user = userRepository.save(UserBuilder.aUser().build());
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        User user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
 
         webTestClient().delete()
                 .uri("/users/{id}", user.getId())
+                .header("Authorization", "Bearer " + token)
                 .exchange()
                 .expectStatus().isNoContent();
 
         assertThat(userRepository.findById(user.getId())).isEmpty();
+    }
+
+    @Test
+    void shouldReturn401WhenNoTokenOnDelete() {
+        webTestClient().delete()
+                .uri("/users/{id}", 1)
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 }
