@@ -22,6 +22,10 @@ external:
     photos:
       base-url: ${EXTERNAL_API_BASE_URL:https://jsonplaceholder.typicode.com}
 
+jwt:
+  secret: ${JWT_SECRET}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
