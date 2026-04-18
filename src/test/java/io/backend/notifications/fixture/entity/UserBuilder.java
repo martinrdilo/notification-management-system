@@ -1,5 +1,6 @@
 package io.backend.notifications.fixture.entity;
 
+import io.backend.notifications.dto.RegisterRequest;
 import io.backend.notifications.dto.UserRequest;
 import io.backend.notifications.entity.User;
 
@@ -12,6 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *   User user = UserBuilder.aUser().build();
  *   User custom = UserBuilder.aUser().withUsername("john").withEmail("john@test.com").build();
  *   UserRequest request = UserBuilder.aUser().buildRequest();
+ *   RegisterRequest reg = UserBuilder.aUser().buildRegisterRequest();
  */
 public final class UserBuilder {
 
@@ -19,6 +21,7 @@ public final class UserBuilder {
 
     private String username;
     private String email;
+    private String password = "password123";
 
     private UserBuilder() {
         long id = COUNTER.getAndIncrement();
@@ -40,13 +43,22 @@ public final class UserBuilder {
         return this;
     }
 
+    public UserBuilder withPassword(String password) {
+        this.password = password;
+        return this;
+    }
+
     /**
      * Builds a User entity (without id — JPA will generate it on persist).
+     * Sets a default BCrypt-like placeholder for passwordHash to satisfy the not-null DB constraint.
+     * Use withPassword() + buildRegisterRequest() for proper auth-aware tests.
      */
     public User build() {
         User user = new User();
         user.setUsername(username);
         user.setEmail(email);
+        // Placeholder hash to satisfy NOT NULL constraint in tests that bypass auth
+        user.setPasswordHash("$2a$10$placeholder.hash.for.testing.only");
         return user;
     }
 
@@ -55,5 +67,20 @@ public final class UserBuilder {
      */
     public UserRequest buildRequest() {
         return new UserRequest(username, email);
+    }
+
+    /**
+     * Builds a RegisterRequest DTO (for auth controller tests).
+     */
+    public RegisterRequest buildRegisterRequest() {
+        return new RegisterRequest(username, email, password);
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getPassword() {
+        return password;
     }
 }

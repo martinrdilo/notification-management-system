@@ -21,6 +21,10 @@ external:
     jsonplaceholder:
       base-url: http://localhost:0
 
+jwt:
+  secret: dGVzdHNlY3JldGtleWZvcnRlc3Rpbmd3aXRoZW5vdWdoYnl0ZXM=
+  expiration-ms: 86400000
+
 springdoc:
   api-docs:
     enabled: false

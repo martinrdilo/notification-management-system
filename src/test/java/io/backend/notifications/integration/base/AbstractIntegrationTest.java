@@ -2,10 +2,17 @@ package io.backend.notifications.integration.base;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import io.backend.notifications.dto.AuthResponse;
+import io.backend.notifications.dto.LoginRequest;
+import io.backend.notifications.fixture.entity.UserBuilder;
 import io.backend.notifications.fixture.wiremock.WireMockHelper;
+import io.backend.notifications.repository.NotificationRepository;
+import io.backend.notifications.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -62,6 +69,22 @@ public abstract class AbstractIntegrationTest {
     @BeforeEach
     void resetMocks() {
         WireMockHelper.reset(WIREMOCK);
+        cleanDatabase();
+    }
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    /**
+     * Deletes all data in FK-safe order: notifications first, then users.
+     * Called from resetMocks() so every test starts with a clean database.
+     */
+    protected void cleanDatabase() {
+        notificationRepository.deleteAll();
+        userRepository.deleteAll();
     }
 
     @LocalServerPort
@@ -71,5 +94,37 @@ public abstract class AbstractIntegrationTest {
         return WebTestClient.bindToServer()
                 .baseUrl("http://localhost:" + port)
                 .build();
+    }
+
+    /**
+     * Logs in and returns the Bearer token string.
+     * Assumes the user already exists in the database.
+     */
+    protected String obtainToken(String email, String password) {
+        AuthResponse response = webTestClient()
+                .post().uri("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(new LoginRequest(email, password))
+                .exchange()
+                .expectStatus().isOk()
+                .returnResult(AuthResponse.class)
+                .getResponseBody()
+                .blockFirst();
+
+        return response != null ? response.token() : null;
+    }
+
+    /**
+     * Registers a user via POST /auth/register and returns the Bearer token.
+     */
+    protected String registerAndLogin(UserBuilder builder) {
+        webTestClient()
+                .post().uri("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(builder.buildRegisterRequest())
+                .exchange()
+                .expectStatus().isCreated();
+
+        return obtainToken(builder.getEmail(), builder.getPassword());
     }
 }
