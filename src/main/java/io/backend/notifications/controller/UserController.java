@@ -6,7 +6,6 @@ import io.backend.notifications.dto.UserRequest;
 import io.backend.notifications.dto.UserResponse;
 import io.backend.notifications.service.UserService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,11 +27,6 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> findById(@PathVariable long id) {
         return ResponseEntity.ok(userService.findById(id));
-    }
-
-    @PostMapping
-    public ResponseEntity<UserResponse> create(@Valid @RequestBody UserRequest userRequest) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(userRequest));
     }
 
     @PutMapping("/{id}")

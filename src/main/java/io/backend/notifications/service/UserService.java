@@ -33,13 +33,6 @@ public class UserService {
         return toResponse(user);
     }
 
-    public UserResponse create(UserRequest request) {
-        User user = new User();
-        user.setUsername(request.username());
-        user.setEmail(request.email());
-        return toResponse(userRepository.save(user));
-    }
-
     public UserResponse update(Long id, UserRequest request) {
         User existing = findEntityById(id);
         existing.setUsername(request.username());

@@ -10,6 +10,7 @@ import io.backend.notifications.enums.Channel;
 import io.backend.notifications.repository.NotificationRepository;
 import io.backend.notifications.repository.UserRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -32,8 +33,9 @@ public class NotificationService {
     }
 
     public EnrichedNotificationResponse createNotification(NotificationRequest request) {
-        User user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
 
         Notification notification = new Notification();
         notification.setUser(user);
@@ -56,8 +58,13 @@ public class NotificationService {
     }
 
     public List<EnrichedNotificationResponse> getNotificationsByUserId(Long userId) {
-        userRepository.findById(userId)
+        User requestedUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        String authenticatedEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!requestedUser.getEmail().equals(authenticatedEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
 
         return notificationRepository.findAllByUserId(userId)
                 .stream()
