@@ -70,4 +70,16 @@ public final class WireMockHelper {
     public static void reset(WireMockServer server) {
         server.resetAll();
     }
+
+    /**
+     * Stub GET /photos/{id} to return a photo response.
+     * Used by notification enrichment to resolve attachment IDs into ExternalPhotoResponse.
+     */
+    public static void stubGetPhoto(WireMockServer server, long photoId, String responseBody) {
+        server.stubFor(WireMock.get(urlPathEqualTo("/photos/" + photoId))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(responseBody)));
+    }
 }

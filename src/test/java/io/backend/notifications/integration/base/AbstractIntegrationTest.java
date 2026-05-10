@@ -58,6 +58,8 @@ public abstract class AbstractIntegrationTest {
         // External API — point to WireMock (tests match on path only)
         registry.add("external.api.jsonplaceholder.base-url",
                 () -> "http://localhost:" + WIREMOCK.port());
+        registry.add("external.api.photos.base-url",
+                () -> "http://localhost:" + WIREMOCK.port());
     }
 
     /**

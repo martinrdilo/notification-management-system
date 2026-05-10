@@ -1,7 +1,11 @@
 package io.backend.notifications.integration.controller;
 
 import io.backend.notifications.dto.NotificationRequest;
+import io.backend.notifications.dto.NotificationUpdateRequest;
+import io.backend.notifications.entity.Notification;
+import io.backend.notifications.fixture.entity.NotificationBuilder;
 import io.backend.notifications.fixture.entity.UserBuilder;
+import io.backend.notifications.fixture.wiremock.WireMockHelper;
 import io.backend.notifications.integration.base.AbstractIntegrationTest;
 import io.backend.notifications.repository.NotificationRepository;
 import io.backend.notifications.repository.UserRepository;
@@ -14,7 +18,7 @@ import java.util.List;
 
 /**
  * Integration tests for NotificationController with JWT authentication.
- * Tests: create (authenticated), 401 without token, 403 for cross-user access.
+ * Tests CRUD: create, list own, get by id (with ownership), update, delete.
  */
 class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
 
@@ -28,6 +32,8 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
     void setUp() {
         cleanDatabase();
     }
+
+    // ──── POST (existing) ────
 
     @Test
     void shouldCreateNotificationWhenAuthenticated() {
@@ -68,49 +74,6 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isUnauthorized();
-    }
-
-    @Test
-    void shouldReturn401WhenGettingNotificationsWithoutToken() {
-        webTestClient().get()
-                .uri("/notifications/user/1")
-                .exchange()
-                .expectStatus().isUnauthorized();
-    }
-
-    @Test
-    void shouldGetOwnNotifications() {
-        UserBuilder builder = UserBuilder.aUser();
-        String token = registerAndLogin(builder);
-
-        // Get user id
-        var user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
-
-        // Create a notification first
-        NotificationRequest request = new NotificationRequest(
-                "My Notification",
-                "My Content",
-                "SMS",
-                List.of()
-        );
-
-        webTestClient().post()
-                .uri("/notifications")
-                .header("Authorization", "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .exchange()
-                .expectStatus().isCreated();
-
-        // Retrieve own notifications
-        webTestClient().get()
-                .uri("/notifications/user/{userId}", user.getId())
-                .header("Authorization", "Bearer " + token)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$").isArray()
-                .jsonPath("$[0].title").isEqualTo("My Notification");
     }
 
     @Test
@@ -183,20 +146,457 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
                 .jsonPath("$.status").isEqualTo("SENT");
     }
 
+    // ──── T7: GET /notifications (list own) ────
+
+    @Test
+    void shouldListOwnNotifications() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        // Create 2 notifications
+        NotificationRequest r1 = new NotificationRequest("First", "Content 1", "EMAIL", List.of());
+        NotificationRequest r2 = new NotificationRequest("Second", "Content 2", "SMS", List.of());
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(r1)
+                .exchange()
+                .expectStatus().isCreated();
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(r2)
+                .exchange()
+                .expectStatus().isCreated();
+
+        webTestClient().get()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$").isArray()
+                .jsonPath("$.length()").isEqualTo(2)
+                .jsonPath("$[0].title").isEqualTo("First")
+                .jsonPath("$[1].title").isEqualTo("Second");
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenNoNotifications() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        webTestClient().get()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$").isArray()
+                .jsonPath("$.length()").isEqualTo(0);
+    }
+
+    @Test
+    void shouldReturn401WhenListingNotificationsWithoutToken() {
+        webTestClient().get()
+                .uri("/notifications")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    // ──── T8: Fix GET /notifications/{id} — ownership enforcement ────
+
+    @Test
+    void shouldReturn403WhenGettingAnotherUsersNotification() {
+        // User A
+        UserBuilder builderA = UserBuilder.aUser();
+        String tokenA = registerAndLogin(builderA);
+
+        // User B — create a notification owned by B
+        UserBuilder builderB = UserBuilder.aUser();
+        String tokenB = registerAndLogin(builderB);
+
+        NotificationRequest req = new NotificationRequest("B's Notification", "Secret", "EMAIL", List.of());
+        var result = webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + tokenB)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(req)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .returnResult()
+                .getResponseBody();
+        // Parse the created notification id from the response (or query DB)
+        var userB = userRepository.findByEmail(builderB.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(userB.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // User A tries to read User B's notification
+        webTestClient().get()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + tokenA)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    // ──── T9: PUT /notifications/{id} ────
+
+    @Test
+    void shouldUpdateOwnNotification() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        // Create a notification first
+        NotificationRequest createReq = new NotificationRequest("Old Title", "Old Content", "EMAIL", List.of());
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(createReq)
+                .exchange()
+                .expectStatus().isCreated();
+
+        var user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(user.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // Stub photo resolution
+        WireMockHelper.stubGetPhoto(WIREMOCK, 1L, """
+                {"albumId":1,"id":1,"title":"photo1","url":"https://example.com/1","thumbnailUrl":"https://example.com/t1"}""");
+        WireMockHelper.stubGetPhoto(WIREMOCK, 2L, """
+                {"albumId":1,"id":2,"title":"photo2","url":"https://example.com/2","thumbnailUrl":"https://example.com/t2"}""");
+
+        NotificationUpdateRequest updateReq = new NotificationUpdateRequest("New Title", "New Content", List.of(1L, 2L));
+
+        webTestClient().put()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateReq)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("New Title")
+                .jsonPath("$.content").isEqualTo("New Content")
+                .jsonPath("$.attachments").isArray()
+                .jsonPath("$.attachments.length()").isEqualTo(2)
+                .jsonPath("$.attachments[0].id").isEqualTo(1)
+                .jsonPath("$.attachments[1].id").isEqualTo(2);
+    }
+
+    @Test
+    void shouldClearAttachmentsOnUpdate() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        // Create a notification with attachment IDs
+        NotificationRequest createReq = new NotificationRequest("With Attachments", "Content", "EMAIL", List.of(1L));
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(createReq)
+                .exchange()
+                .expectStatus().isCreated();
+
+        var user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(user.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // Update with null attachmentIds — clears them
+        NotificationUpdateRequest updateReq = new NotificationUpdateRequest("Updated", "New Content", null);
+
+        webTestClient().put()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateReq)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.title").isEqualTo("Updated")
+                .jsonPath("$.attachments").isArray()
+                .jsonPath("$.attachments.length()").isEqualTo(0);
+    }
+
+    @Test
+    void shouldReturn403WhenUpdatingAnotherUsersNotification() {
+        UserBuilder builderA = UserBuilder.aUser();
+        String tokenA = registerAndLogin(builderA);
+
+        UserBuilder builderB = UserBuilder.aUser();
+        String tokenB = registerAndLogin(builderB);
+
+        // User B creates a notification
+        NotificationRequest req = new NotificationRequest("B's", "Secret", "EMAIL", List.of());
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + tokenB)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(req)
+                .exchange()
+                .expectStatus().isCreated();
+
+        var userB = userRepository.findByEmail(builderB.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(userB.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // User A tries to update User B's notification
+        NotificationUpdateRequest updateReq = new NotificationUpdateRequest("Hacked", "Evil", List.of());
+        webTestClient().put()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + tokenA)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateReq)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    void shouldReturn404WhenUpdatingNonExistentNotification() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationUpdateRequest updateReq = new NotificationUpdateRequest("Title", "Content", List.of());
+        webTestClient().put()
+                .uri("/notifications/{id}", 99999L)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateReq)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void shouldReturn401WhenUpdatingWithoutToken() {
+        NotificationUpdateRequest updateReq = new NotificationUpdateRequest("Title", "Content", List.of());
+        webTestClient().put()
+                .uri("/notifications/{id}", 1L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateReq)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void shouldReturn400WhenUpdatingWithBlankTitle() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        // Create a notification first
+        NotificationRequest createReq = new NotificationRequest("Valid", "Content", "EMAIL", List.of());
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(createReq)
+                .exchange()
+                .expectStatus().isCreated();
+
+        var user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(user.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // Update with blank title
+        NotificationUpdateRequest updateReq = new NotificationUpdateRequest(" ", "Content", List.of());
+        webTestClient().put()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateReq)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenUpdatingWithBlankContent() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        // Create a notification first
+        NotificationRequest createReq = new NotificationRequest("Valid", "Content", "EMAIL", List.of());
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(createReq)
+                .exchange()
+                .expectStatus().isCreated();
+
+        var user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(user.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // Update with blank content
+        NotificationUpdateRequest updateReq = new NotificationUpdateRequest("Title", " ", List.of());
+        webTestClient().put()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateReq)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    // ──── T10: DELETE /notifications/{id} ────
+
+    @Test
+    void shouldDeleteOwnNotification() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        // Create a notification
+        NotificationRequest createReq = new NotificationRequest("To Delete", "Bye", "EMAIL", List.of());
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(createReq)
+                .exchange()
+                .expectStatus().isCreated();
+
+        var user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(user.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // Delete
+        webTestClient().delete()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isEqualTo(204);
+
+        // Verify it's really gone
+        webTestClient().get()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void shouldReturn404WhenDeletingNonExistentNotification() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        webTestClient().delete()
+                .uri("/notifications/{id}", 99999L)
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void shouldReturn403WhenDeletingAnotherUsersNotification() {
+        UserBuilder builderA = UserBuilder.aUser();
+        String tokenA = registerAndLogin(builderA);
+
+        UserBuilder builderB = UserBuilder.aUser();
+        String tokenB = registerAndLogin(builderB);
+
+        // User B creates a notification
+        NotificationRequest req = new NotificationRequest("B's", "Secret", "EMAIL", List.of());
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + tokenB)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(req)
+                .exchange()
+                .expectStatus().isCreated();
+
+        var userB = userRepository.findByEmail(builderB.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(userB.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // User A tries to delete User B's notification
+        webTestClient().delete()
+                .uri("/notifications/{id}", notificationId)
+                .header("Authorization", "Bearer " + tokenA)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    void shouldReturn401WhenDeletingWithoutToken() {
+        webTestClient().delete()
+                .uri("/notifications/{id}", 1L)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    // ──── Legacy: updated to use new endpoints ────
+
+    @Test
+    void shouldReturn401WhenGettingNotificationsWithoutToken() {
+        webTestClient().get()
+                .uri("/notifications")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void shouldGetOwnNotifications() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        // Create a notification first
+        NotificationRequest request = new NotificationRequest(
+                "My Notification",
+                "My Content",
+                "SMS",
+                List.of()
+        );
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated();
+
+        // Retrieve own notifications via new endpoint
+        webTestClient().get()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$").isArray()
+                .jsonPath("$[0].title").isEqualTo("My Notification");
+    }
+
     @Test
     void shouldReturn403WhenAccessingAnotherUsersNotifications() {
         // User A
         UserBuilder builderA = UserBuilder.aUser();
         String tokenA = registerAndLogin(builderA);
 
-        // User B
+        // User B — create notification owned by B
         UserBuilder builderB = UserBuilder.aUser();
-        registerAndLogin(builderB);
-        var userB = userRepository.findByEmail(builderB.getEmail()).orElseThrow();
+        String tokenB = registerAndLogin(builderB);
 
-        // User A tries to access User B's notifications
+        NotificationRequest req = new NotificationRequest("B's Notification", "Secret", "EMAIL", List.of());
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + tokenB)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(req)
+                .exchange()
+                .expectStatus().isCreated();
+
+        var userB = userRepository.findByEmail(builderB.getEmail()).orElseThrow();
+        var notifications = notificationRepository.findAllByUserId(userB.getId());
+        Long notificationId = notifications.get(0).getId();
+
+        // User A tries to GET User B's notification by ID
         webTestClient().get()
-                .uri("/notifications/user/{userId}", userB.getId())
+                .uri("/notifications/{id}", notificationId)
                 .header("Authorization", "Bearer " + tokenA)
                 .exchange()
                 .expectStatus().isForbidden();
