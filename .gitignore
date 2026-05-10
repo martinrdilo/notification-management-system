@@ -36,6 +36,9 @@ out/
 ### docs ###
 .docs/
 
+### SDD ###
+.atl/
+
 ### Environment files ###
 .env
 .env.test
