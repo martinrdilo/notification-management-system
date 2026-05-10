@@ -4,6 +4,7 @@ import io.backend.notifications.client.ExternalMediaClient;
 import io.backend.notifications.dto.EnrichedNotificationResponse;
 import io.backend.notifications.dto.ExternalPhotoResponse;
 import io.backend.notifications.dto.NotificationRequest;
+import io.backend.notifications.dto.NotificationUpdateRequest;
 import io.backend.notifications.entity.Notification;
 import io.backend.notifications.entity.User;
 import io.backend.notifications.enums.Channel;
@@ -69,24 +70,42 @@ public class NotificationService {
     }
 
     public EnrichedNotificationResponse getNotificationById(Long id) {
-        Notification notification = notificationRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found"));
+        Notification notification = findOwnNotification(id);
         return enrichNotification(notification);
     }
 
-    public List<EnrichedNotificationResponse> getNotificationsByUserId(Long userId) {
-        User requestedUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    public Notification findOwnNotification(Long id) {
+        Notification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found"));
 
         String authenticatedEmail = SecurityContextHolder.getContext().getAuthentication().getName();
-        if (!requestedUser.getEmail().equals(authenticatedEmail)) {
+        if (!notification.getUser().getEmail().equals(authenticatedEmail)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
         }
 
-        return notificationRepository.findAllByUserId(userId)
+        return notification;
+    }
+
+    public List<EnrichedNotificationResponse> getMyNotifications() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return notificationRepository.findAllByUserEmail(email)
                 .stream()
                 .map(this::enrichNotification)
                 .toList();
+    }
+
+    public EnrichedNotificationResponse updateNotification(Long id, NotificationUpdateRequest request) {
+        Notification notification = findOwnNotification(id);
+        notification.setTitle(request.title());
+        notification.setContent(request.content());
+        notification.setAttachmentIds(request.attachmentIds());
+        Notification saved = notificationRepository.save(notification);
+        return enrichNotification(saved);
+    }
+
+    public void deleteNotification(Long id) {
+        Notification notification = findOwnNotification(id);
+        notificationRepository.delete(notification);
     }
 
     private EnrichedNotificationResponse enrichNotification(Notification notification) {
