@@ -114,6 +114,76 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void shouldSetStatusToSentForEmailChannel() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest(
+                "Email Notification",
+                "Sent via email channel",
+                "EMAIL",
+                List.of()
+        );
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("SENT");
+    }
+
+    @Test
+    void shouldSetStatusToSentForSmsChannelWithLongContent() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        String longContent = "A".repeat(200);
+        NotificationRequest request = new NotificationRequest(
+                "SMS Notification",
+                longContent,
+                "SMS",
+                List.of()
+        );
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("SENT");
+    }
+
+    @Test
+    void shouldSetStatusToSentForPushChannel() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest(
+                "Push Notification",
+                "Push message content",
+                "PUSH",
+                List.of()
+        );
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("SENT");
+    }
+
+    @Test
     void shouldReturn403WhenAccessingAnotherUsersNotifications() {
         // User A
         UserBuilder builderA = UserBuilder.aUser();
