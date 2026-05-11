@@ -1,0 +1,11 @@
+services:
+  test:
+    build:
+      context: .
+      target: builder
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+    command: ./gradlew test --no-daemon

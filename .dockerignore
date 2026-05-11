@@ -8,4 +8,7 @@ build
 .env.example
 .dockerignore
 docker-compose.yml
+docker-compose.test.yml
 Dockerfile
+run-app.sh
+run-tests.sh
