@@ -454,9 +454,9 @@ public List<EnrichedNotificationResponse> getNotificationsByUserId(Long userId) 
 | `JwtServiceUnitTest` | Unitario | Generación de token válido, extracción de email, validación exitosa, token de otro usuario (false), token expirado (false), token tampered (excepción) |
 | `AuthControllerIntegrationTest` | Integración | Register 201, register 409 (email duplicado), register 400 (campos inválidos), register 400 (password corta), login 200, login 401 (password incorrecta), login 401 (email desconocido), login 400 (campos vacíos) |
 | `NotificationControllerIntegrationTest` | Integración | Create notification 201 (autenticado), create 401 (sin token), get notifications 401 (sin token), get own notifications 200, get other user notifications 403 |
-| `UserControllerIntegrationTest` | Integración | Get all users 200 (autenticado), get user by id 200, get user 404, get users 401 (sin token), get user by id 401 (sin token), delete user 204, delete 401 (sin token) |
+| `UserControllerIntegrationTest` | Integración | Get all users 200, get user by id 200, get user 404, get users 401, get user by id 401, update user 200, update blank username 400, update invalid email 400, update not found 404, update 401, delete user 204, delete 401 |
 | `UserRepositoryIntegrationTest` | Integración | Save y find, find by id, not found, delete |
-| `UserServiceUnitTest` | Unitario | Find all, find by id, not found (excepción), delete |
+| `UserServiceUnitTest` | Unitario | Find all, find by id, not found (excepción), update, delete |
 
 ### Escenarios de 401 y 403
 

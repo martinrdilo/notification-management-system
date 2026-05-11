@@ -396,7 +396,7 @@ The dispatch failure case is intentional: the notification WAS created. The clie
 
 ## 7. Test Coverage
 
-### New Unit Tests (14)
+### New Unit Tests (15)
 
 | Test Class | Scenarios |
 |------------|-----------|
@@ -405,15 +405,28 @@ The dispatch failure case is intentional: the notification WAS created. The clie
 | `PushChannelSenderTest` | JSON payload format verified, deviceToken present → dispatched, null deviceToken → exception |
 | `ChannelDispatcherTest` | Correct sender dispatched, no sender for channel → exception |
 | `NotificationServiceUnitTest` | findOwnNotification (found, 404, 403), getMyNotifications (with data, empty), updateNotification, deleteNotification |
+| `UserServiceUnitTest` | findAll, findById, not found (exception), update, delete |
 | `UserTest` | Phone getter/setter, null phone by default, deviceToken getter/setter, null deviceToken by default |
 | `RegisterRequestTest` | Optional phone and deviceToken accepted, both default to null |
 | `UserResponseTest` | Phone and deviceToken included in response record |
 | `UserBuilderTest` | withPhone() sets phone, withDeviceToken() sets device token |
 
-### New Integration Tests (31)
+### New Integration Tests (36)
 
 | Scenario | Status |
 |----------|--------|
+| GET /users — authenticated | 200 |
+| GET /users — no token | 401 |
+| GET /users/{id} — found | 200 |
+| GET /users/{id} — not found | 404 |
+| GET /users/{id} — no token | 401 |
+| PUT /users/{id} — update fields | 200 |
+| PUT /users/{id} — blank username | 400 |
+| PUT /users/{id} — invalid email | 400 |
+| PUT /users/{id} — not found | 404 |
+| PUT /users/{id} — no token | 401 |
+| DELETE /users/{id} — delete | 204 |
+| DELETE /users/{id} — no token | 401 |
 | GET /notifications — authenticated, with data | 200 |
 | GET /notifications — authenticated, empty list | 200 |
 | GET /notifications — no token | 401 |
@@ -437,7 +450,7 @@ The dispatch failure case is intentional: the notification WAS created. The clie
 | DELETE /notifications/{id} — other user's | 403 |
 | DELETE /notifications/{id} — not found | 404 |
 
-**Total**: 95 tests (69 baseline + 26 new), 0 failures.
+**Total**: 101 tests (75 baseline + 26 new), 0 failures.
 
 ---
 

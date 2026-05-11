@@ -109,4 +109,91 @@ class UserControllerIntegrationTest extends AbstractIntegrationTest {
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
+
+    // ──── PUT /users/{id} ────
+
+    @Test
+    void shouldUpdateUser() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        User user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+
+        UserRequest updateRequest = new UserRequest("updatedUser", "updated@test.com");
+
+        webTestClient().put()
+                .uri("/users/{id}", user.getId())
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateRequest)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.username").isEqualTo("updatedUser")
+                .jsonPath("$.email").isEqualTo("updated@test.com");
+    }
+
+    @Test
+    void shouldReturn400WhenUpdatingWithBlankUsername() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        User user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+
+        UserRequest updateRequest = new UserRequest(" ", "valid@test.com");
+
+        webTestClient().put()
+                .uri("/users/{id}", user.getId())
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateRequest)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenUpdatingWithInvalidEmail() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        User user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+
+        UserRequest updateRequest = new UserRequest("validuser", "notanemail");
+
+        webTestClient().put()
+                .uri("/users/{id}", user.getId())
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateRequest)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn404WhenUpdatingNonExistentUser() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        UserRequest updateRequest = new UserRequest("newuser", "new@test.com");
+
+        webTestClient().put()
+                .uri("/users/{id}", 99999L)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateRequest)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void shouldReturn401WhenUpdatingWithoutToken() {
+        UserRequest updateRequest = new UserRequest("newuser", "new@test.com");
+
+        webTestClient().put()
+                .uri("/users/{id}", 1L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(updateRequest)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
 }

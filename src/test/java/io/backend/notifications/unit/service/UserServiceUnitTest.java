@@ -1,5 +1,6 @@
 package io.backend.notifications.unit.service;
 
+import io.backend.notifications.dto.UserRequest;
 import io.backend.notifications.dto.UserResponse;
 import io.backend.notifications.entity.User;
 import io.backend.notifications.fixture.entity.UserBuilder;
@@ -64,6 +65,22 @@ class UserServiceUnitTest {
         assertThatThrownBy(() -> userService.findById(999L))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("User not found");
+    }
+
+    @Test
+    void shouldUpdateUser() {
+        User existing = UserBuilder.aUser().build();
+        existing.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.save(any(User.class))).thenReturn(existing);
+
+        UserRequest request = new UserRequest("newusername", "new@test.com");
+        UserResponse result = userService.update(1L, request);
+
+        assertThat(result.username()).isEqualTo("newusername");
+        assertThat(result.email()).isEqualTo("new@test.com");
+        verify(userRepository).findById(1L);
+        verify(userRepository).save(existing);
     }
 
     @Test
