@@ -26,6 +26,12 @@ public class User {
     private String passwordHash;
 
     @Column
+    private String phone;
+
+    @Column(name = "device_token")
+    private String deviceToken;
+
+    @Column
     private LocalDateTime createdAt;
 
     @PrePersist
@@ -63,6 +69,22 @@ public class User {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getDeviceToken() {
+        return deviceToken;
+    }
+
+    public void setDeviceToken(String deviceToken) {
+        this.deviceToken = deviceToken;
     }
 
     public LocalDateTime getCreatedAt() {

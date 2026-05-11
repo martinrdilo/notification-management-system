@@ -5,6 +5,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import io.backend.notifications.entity.Notification;
+import io.backend.notifications.entity.User;
 import io.backend.notifications.service.channel.SmsChannelSender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,9 +22,7 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link SmsChannelSender}.
  *
- * Tests R3 from spec:
- * - Content within 160 characters is NOT truncated
- * - Content exceeding 160 characters IS truncated to 160 before logging
+ * Tests from spec: SMS phone logging with timestamp, truncation, and null-phone warning.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SmsChannelSender")
@@ -42,12 +41,18 @@ class SmsChannelSenderTest {
         logger.addAppender(listAppender);
     }
 
+    // ──── New tests: phone logging ────
+
     @Test
-    @DisplayName("should log full content when within 160 character limit")
-    void shouldNotTruncateContentWithinLimit() {
+    @DisplayName("should log phone number with timestamp and truncated content when phone present")
+    void shouldLogPhoneWhenPresent() {
         String content = "Hello World";
+        User user = mock(User.class);
+        when(user.getPhone()).thenReturn("+5491112345678");
+
         Notification notification = mock(Notification.class);
         when(notification.getContent()).thenReturn(content);
+        when(notification.getUser()).thenReturn(user);
 
         smsChannelSender.send(notification);
 
@@ -57,16 +62,46 @@ class SmsChannelSenderTest {
                 .satisfies(event -> {
                     assertThat(event.getLevel()).isEqualTo(Level.INFO);
                     assertThat(event.getFormattedMessage())
-                            .contains("Hello World"); // proves content is fully present, not truncated
+                            .contains("SMS sent to +5491112345678")
+                            .contains("Hello World");
                 });
     }
 
     @Test
-    @DisplayName("should truncate content to 160 characters when limit exceeded")
-    void shouldTruncateContentExceedingLimit() {
-        String content = "A".repeat(200);
+    @DisplayName("should log warning when phone is null")
+    void shouldLogWarningWhenPhoneNull() {
+        String content = "Some message";
+        User user = mock(User.class);
+        when(user.getPhone()).thenReturn(null);
+        when(user.getId()).thenReturn(42L);
+
         Notification notification = mock(Notification.class);
         when(notification.getContent()).thenReturn(content);
+        when(notification.getUser()).thenReturn(user);
+
+        smsChannelSender.send(notification);
+
+        assertThat(listAppender.list)
+                .hasSize(1)
+                .first()
+                .satisfies(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getFormattedMessage())
+                            .contains("No phone number for user")
+                            .contains("42");
+                });
+    }
+
+    @Test
+    @DisplayName("should still truncate content to 160 characters when phone is present")
+    void shouldPreserveContentTruncation() {
+        String content = "A".repeat(200);
+        User user = mock(User.class);
+        when(user.getPhone()).thenReturn("+5491112345678");
+
+        Notification notification = mock(Notification.class);
+        when(notification.getContent()).thenReturn(content);
+        when(notification.getUser()).thenReturn(user);
 
         smsChannelSender.send(notification);
 
@@ -76,28 +111,67 @@ class SmsChannelSenderTest {
                 .satisfies(event -> {
                     assertThat(event.getLevel()).isEqualTo(Level.INFO);
                     String message = event.getFormattedMessage();
-                    // Should contain truncated content (exactly 160 chars)
+                    assertThat(message).contains("+5491112345678");
                     assertThat(message).contains("A".repeat(160));
-                    // Should NOT contain the full 200-char content
                     assertThat(message).doesNotContain("A".repeat(161));
                 });
+    }
+
+    // ──── Updated existing tests: mock user.getPhone() ────
+
+    @Test
+    @DisplayName("should log full content when within 160 character limit")
+    void shouldNotTruncateContentWithinLimit() {
+        String content = "Hello World";
+        User user = mock(User.class);
+        when(user.getPhone()).thenReturn("+5491111111111");
+
+        Notification notification = mock(Notification.class);
+        when(notification.getContent()).thenReturn(content);
+        when(notification.getUser()).thenReturn(user);
+
+        smsChannelSender.send(notification);
+
+        assertThat(listAppender.list).isNotEmpty();
+        String message = listAppender.list.get(0).getFormattedMessage();
+        assertThat(message).contains("Hello World");
+        assertThat(message).contains("SMS sent to +5491111111111");
+    }
+
+    @Test
+    @DisplayName("should truncate content to 160 characters when limit exceeded")
+    void shouldTruncateContentExceedingLimit() {
+        String content = "A".repeat(200);
+        User user = mock(User.class);
+        when(user.getPhone()).thenReturn("+5491111111111");
+
+        Notification notification = mock(Notification.class);
+        when(notification.getContent()).thenReturn(content);
+        when(notification.getUser()).thenReturn(user);
+
+        smsChannelSender.send(notification);
+
+        assertThat(listAppender.list).isNotEmpty();
+        String message = listAppender.list.get(0).getFormattedMessage();
+        assertThat(message).contains("A".repeat(160));
+        assertThat(message).doesNotContain("A".repeat(161));
     }
 
     @Test
     @DisplayName("should log content exactly at 160 characters without truncation")
     void shouldNotTruncateContentAtExactLimit() {
         String content = "B".repeat(160);
+        User user = mock(User.class);
+        when(user.getPhone()).thenReturn("+5491111111111");
+
         Notification notification = mock(Notification.class);
         when(notification.getContent()).thenReturn(content);
+        when(notification.getUser()).thenReturn(user);
 
         smsChannelSender.send(notification);
 
-        assertThat(listAppender.list)
-                .hasSize(1)
-                .first()
-                .satisfies(event -> {
-                    String message = event.getFormattedMessage();
-                    assertThat(message).contains("B".repeat(160));
-                });
+        assertThat(listAppender.list).isNotEmpty();
+        String message = listAppender.list.get(0).getFormattedMessage();
+        assertThat(message).contains("B".repeat(160));
     }
 }

@@ -46,7 +46,8 @@ public class UserService {
     }
 
     private UserResponse toResponse(User user) {
-        return new UserResponse(user.getId(), user.getUsername(), user.getEmail(), user.getCreatedAt());
+        return new UserResponse(user.getId(), user.getUsername(), user.getEmail(), user.getCreatedAt(),
+                user.getPhone(), user.getDeviceToken());
     }
 
     private User findEntityById(Long id) {

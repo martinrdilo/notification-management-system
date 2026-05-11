@@ -2,17 +2,25 @@ package io.backend.notifications.integration.controller;
 
 import io.backend.notifications.dto.LoginRequest;
 import io.backend.notifications.dto.RegisterRequest;
+import io.backend.notifications.entity.User;
 import io.backend.notifications.fixture.entity.UserBuilder;
 import io.backend.notifications.integration.base.AbstractIntegrationTest;
+import io.backend.notifications.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for AuthController.
  * Covers register and login scenarios from spec.
  */
 class AuthControllerIntegrationTest extends AbstractIntegrationTest {
+
+    @Autowired
+    private UserRepository userRepository;
 
     @BeforeEach
     void setUp() {
@@ -57,7 +65,7 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
     @Test
     void shouldReturn400OnInvalidRegistrationInput() {
         // Missing username, invalid email, short password
-        RegisterRequest invalid = new RegisterRequest("", "not-an-email", "short");
+        RegisterRequest invalid = new RegisterRequest("", "not-an-email", "short", null, null);
 
         webTestClient().post()
                 .uri("/auth/register")
@@ -69,7 +77,7 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldReturn400OnBlankPasswordAtRegistration() {
-        RegisterRequest invalid = new RegisterRequest("validuser", "valid@test.com", "1234567"); // 7 chars, < 8
+        RegisterRequest invalid = new RegisterRequest("validuser", "valid@test.com", "1234567", null, null);
 
         webTestClient().post()
                 .uri("/auth/register")
@@ -142,5 +150,23 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
                 .bodyValue(new LoginRequest("", ""))
                 .exchange()
                 .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldPersistPhoneAndDeviceTokenOnRegistration() {
+        UserBuilder builder = UserBuilder.aUser()
+                .withPhone("+5491112345678")
+                .withDeviceToken("tok_abc123");
+
+        webTestClient().post()
+                .uri("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(builder.buildRegisterRequest())
+                .exchange()
+                .expectStatus().isCreated();
+
+        User user = userRepository.findByEmail(builder.getEmail()).orElseThrow();
+        assertThat(user.getPhone()).isEqualTo("+5491112345678");
+        assertThat(user.getDeviceToken()).isEqualTo("tok_abc123");
     }
 }

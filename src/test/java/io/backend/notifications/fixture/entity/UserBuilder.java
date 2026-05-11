@@ -22,6 +22,8 @@ public final class UserBuilder {
     private String username;
     private String email;
     private String password = "password123";
+    private String phone;
+    private String deviceToken;
 
     private UserBuilder() {
         long id = COUNTER.getAndIncrement();
@@ -45,6 +47,16 @@ public final class UserBuilder {
 
     public UserBuilder withPassword(String password) {
         this.password = password;
+        return this;
+    }
+
+    public UserBuilder withPhone(String phone) {
+        this.phone = phone;
+        return this;
+    }
+
+    public UserBuilder withDeviceToken(String deviceToken) {
+        this.deviceToken = deviceToken;
         return this;
     }
 
@@ -73,7 +85,7 @@ public final class UserBuilder {
      * Builds a RegisterRequest DTO (for auth controller tests).
      */
     public RegisterRequest buildRegisterRequest() {
-        return new RegisterRequest(username, email, password);
+        return new RegisterRequest(username, email, password, phone, deviceToken);
     }
 
     public String getEmail() {
