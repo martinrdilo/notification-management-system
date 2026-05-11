@@ -51,7 +51,7 @@ public class NotificationService {
         notification.setUser(user);
         notification.setTitle(request.title());
         notification.setContent(request.content());
-        notification.setChannel(Channel.valueOf(request.channel()));
+        notification.setChannel(request.channel());
 
         if (request.attachmentIds() != null) {
             notification.setAttachmentIds(request.attachmentIds());

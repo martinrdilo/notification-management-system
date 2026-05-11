@@ -3,6 +3,7 @@ package io.backend.notifications.integration.controller;
 import io.backend.notifications.dto.NotificationRequest;
 import io.backend.notifications.dto.NotificationUpdateRequest;
 import io.backend.notifications.entity.Notification;
+import io.backend.notifications.enums.Channel;
 import io.backend.notifications.fixture.entity.NotificationBuilder;
 import io.backend.notifications.fixture.entity.UserBuilder;
 import io.backend.notifications.fixture.wiremock.WireMockHelper;
@@ -43,7 +44,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         NotificationRequest request = new NotificationRequest(
                 "Test Title",
                 "Test Content",
-                "EMAIL",
+                Channel.EMAIL,
                 List.of()
         );
 
@@ -64,7 +65,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         NotificationRequest request = new NotificationRequest(
                 "Test Title",
                 "Test Content",
-                "EMAIL",
+                Channel.EMAIL,
                 List.of()
         );
 
@@ -82,9 +83,9 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String token = registerAndLogin(builder);
 
         NotificationRequest request = new NotificationRequest(
-                "Email Notification",
-                "Sent via email channel",
-                "EMAIL",
+                "Test Title",
+                "Test Content",
+                Channel.EMAIL,
                 List.of()
         );
 
@@ -108,7 +109,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         NotificationRequest request = new NotificationRequest(
                 "SMS Notification",
                 longContent,
-                "SMS",
+                Channel.SMS,
                 List.of()
         );
 
@@ -125,13 +126,13 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldSetStatusToSentForPushChannel() {
-        UserBuilder builder = UserBuilder.aUser();
+        UserBuilder builder = UserBuilder.aUser().withDeviceToken("tok_test");
         String token = registerAndLogin(builder);
 
         NotificationRequest request = new NotificationRequest(
                 "Push Notification",
                 "Push message content",
-                "PUSH",
+                Channel.PUSH,
                 List.of()
         );
 
@@ -154,8 +155,8 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String token = registerAndLogin(builder);
 
         // Create 2 notifications
-        NotificationRequest r1 = new NotificationRequest("First", "Content 1", "EMAIL", List.of());
-        NotificationRequest r2 = new NotificationRequest("Second", "Content 2", "SMS", List.of());
+        NotificationRequest r1 = new NotificationRequest("First", "Content 1", Channel.EMAIL, List.of());
+        NotificationRequest r2 = new NotificationRequest("Second", "Content 2", Channel.SMS, List.of());
 
         webTestClient().post()
                 .uri("/notifications")
@@ -220,7 +221,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         UserBuilder builderB = UserBuilder.aUser();
         String tokenB = registerAndLogin(builderB);
 
-        NotificationRequest req = new NotificationRequest("B's Notification", "Secret", "EMAIL", List.of());
+        NotificationRequest req = new NotificationRequest("B's Notification", "Secret", Channel.EMAIL, List.of());
         var result = webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + tokenB)
@@ -252,7 +253,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String token = registerAndLogin(builder);
 
         // Create a notification first
-        NotificationRequest createReq = new NotificationRequest("Old Title", "Old Content", "EMAIL", List.of());
+        NotificationRequest createReq = new NotificationRequest("Old Title", "Old Content", Channel.EMAIL, List.of());
         webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + token)
@@ -295,7 +296,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String token = registerAndLogin(builder);
 
         // Create a notification with attachment IDs
-        NotificationRequest createReq = new NotificationRequest("With Attachments", "Content", "EMAIL", List.of(1L));
+        NotificationRequest createReq = new NotificationRequest("With Attachments", "Content", Channel.EMAIL, List.of(1L));
         webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + token)
@@ -333,7 +334,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String tokenB = registerAndLogin(builderB);
 
         // User B creates a notification
-        NotificationRequest req = new NotificationRequest("B's", "Secret", "EMAIL", List.of());
+        NotificationRequest req = new NotificationRequest("B's", "Secret", Channel.EMAIL, List.of());
         webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + tokenB)
@@ -389,7 +390,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String token = registerAndLogin(builder);
 
         // Create a notification first
-        NotificationRequest createReq = new NotificationRequest("Valid", "Content", "EMAIL", List.of());
+        NotificationRequest createReq = new NotificationRequest("Valid", "Content", Channel.EMAIL, List.of());
         webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + token)
@@ -419,7 +420,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String token = registerAndLogin(builder);
 
         // Create a notification first
-        NotificationRequest createReq = new NotificationRequest("Valid", "Content", "EMAIL", List.of());
+        NotificationRequest createReq = new NotificationRequest("Valid", "Content", Channel.EMAIL, List.of());
         webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + token)
@@ -451,7 +452,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String token = registerAndLogin(builder);
 
         // Create a notification
-        NotificationRequest createReq = new NotificationRequest("To Delete", "Bye", "EMAIL", List.of());
+        NotificationRequest createReq = new NotificationRequest("To Delete", "Bye", Channel.EMAIL, List.of());
         webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + token)
@@ -500,7 +501,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         String tokenB = registerAndLogin(builderB);
 
         // User B creates a notification
-        NotificationRequest req = new NotificationRequest("B's", "Secret", "EMAIL", List.of());
+        NotificationRequest req = new NotificationRequest("B's", "Secret", Channel.EMAIL, List.of());
         webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + tokenB)
@@ -548,7 +549,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         NotificationRequest request = new NotificationRequest(
                 "My Notification",
                 "My Content",
-                "SMS",
+                Channel.SMS,
                 List.of()
         );
 
@@ -581,7 +582,7 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
         UserBuilder builderB = UserBuilder.aUser();
         String tokenB = registerAndLogin(builderB);
 
-        NotificationRequest req = new NotificationRequest("B's Notification", "Secret", "EMAIL", List.of());
+        NotificationRequest req = new NotificationRequest("B's Notification", "Secret", Channel.EMAIL, List.of());
         webTestClient().post()
                 .uri("/notifications")
                 .header("Authorization", "Bearer " + tokenB)
@@ -600,5 +601,159 @@ class NotificationControllerIntegrationTest extends AbstractIntegrationTest {
                 .header("Authorization", "Bearer " + tokenA)
                 .exchange()
                 .expectStatus().isForbidden();
+    }
+
+    // ──── Input Validation (spec: input-validation) ────
+
+    @Test
+    void shouldReturn400WhenCreatingWithBlankTitle() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest("", "Valid Content", Channel.EMAIL, List.of());
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenCreatingWithNullTitle() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest(null, "Valid Content", Channel.EMAIL, List.of());
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenCreatingWithBlankContent() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest("Valid Title", "", Channel.EMAIL, List.of());
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenCreatingWithWhitespaceOnlyTitle() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest("   ", "Valid Content", Channel.EMAIL, List.of());
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenCreatingWithInvalidChannel() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        String json = """
+                {"title":"Test","content":"Body","channel":"INVALID","attachmentIds":[]}""";
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(json)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenCreatingWithNullChannel() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        String json = """
+                {"title":"Test","content":"Body","channel":null,"attachmentIds":[]}""";
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(json)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldCreateNotificationWithSmsChannel() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest("SMS Title", "SMS Body", Channel.SMS, List.of());
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.channel").isEqualTo("SMS");
+    }
+
+    @Test
+    void shouldCreateNotificationWithPushChannel() {
+        UserBuilder builder = UserBuilder.aUser().withDeviceToken("tok_test");
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest("Push Title", "Push Body", Channel.PUSH, List.of());
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.channel").isEqualTo("PUSH");
+    }
+
+    @Test
+    void shouldCreateNotificationWithEmailChannel() {
+        UserBuilder builder = UserBuilder.aUser();
+        String token = registerAndLogin(builder);
+
+        NotificationRequest request = new NotificationRequest("Email Title", "Email Body", Channel.EMAIL, List.of());
+
+        webTestClient().post()
+                .uri("/notifications")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.channel").isEqualTo("EMAIL");
     }
 }

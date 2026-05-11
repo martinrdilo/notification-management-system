@@ -23,7 +23,7 @@ public class NotificationController {
 
     @PostMapping
     public ResponseEntity<EnrichedNotificationResponse> createNotification(
-            @RequestBody NotificationRequest request) {
+            @Valid @RequestBody NotificationRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(notificationService.createNotification(request));
     }
