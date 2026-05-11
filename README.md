@@ -2,6 +2,15 @@
 
 REST API for notification management with JWT authentication and simulated multi-channel delivery (Email, SMS, Push). Built as a take-home technical challenge.
 
+## Features
+
+- **User registration & login** with JWT authentication (stateless)
+- **CRUD for notifications**: create, read, update, delete
+- **Multi-channel simulated delivery**: Email, SMS, and Push — each with channel-specific validation and formatting
+- **Ownership enforcement**: users can only access their own notifications (IDOR protection)
+- **Open/Closed Principle**: adding a new channel requires zero changes to existing code
+- **Swagger UI**: interactive API documentation at `/swagger-ui.html`
+
 ## Stack
 
 | Layer | Technology |
@@ -19,20 +28,18 @@ REST API for notification management with JWT authentication and simulated multi
 - Java 21
 - Docker (for local PostgreSQL and integration tests)
 
-## Setup & Run
+## Quick Start
 
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
 cd backend-challenge
 
-# 2. Start PostgreSQL with Docker
+# 2. Build and start the app + PostgreSQL
+./run-app.sh
+
+# Or manually:
 docker compose up -d
-
-# 3. Copy environment variables (or adjust .env to your setup)
-cp .env.example .env   # if it exists, or use the included .env
-
-# 4. Run the application
 ./gradlew bootRun
 ```
 
@@ -99,6 +106,32 @@ POST /notifications
 | `JWT_EXPIRATION_MS` | `86400000` | Token expiration (24h default) |
 | `EXTERNAL_API_BASE_URL` | `https://jsonplaceholder.typicode.com` | External API for photo enrichment |
 
+> See `.env.example` for a ready-to-use template.
+
+## Tests
+
+```bash
+# Run all tests with Docker
+./run-tests.sh
+
+# Or manually:
+./gradlew test
+```
+
+**Current coverage**: 101 tests (unit + integration), 0 failures.
+
+- **Unit**: `MockitoExtension`, no Spring context. Each sender and service tested in isolation.
+- **Integration**: `Testcontainers` (real PostgreSQL) + `WireMock` (external API) + `WebTestClient` (HTTP).
+
+## Documentation
+
+Detailed architecture and testing docs are available in [`docs/`](docs/):
+
+- [`01-authentication.md`](docs/01-authentication.md) — JWT flow and security configuration
+- [`02-channel-sending-and-crud.md`](docs/02-channel-sending-and-crud.md) — Strategy pattern for channel dispatch + CRUD operations
+- [`03-testing-infrastructure.md`](docs/03-testing-infrastructure.md) — Testcontainers, WireMock, and test architecture
+- [`04-testing-architecture-diagram.md`](docs/04-testing-architecture-diagram.md) — Visual overview of the test setup
+
 ## Technical Decisions
 
 ### 1. Stateless JWT Authentication
@@ -149,18 +182,6 @@ Integration tests use real PostgreSQL via Testcontainers and WireMock to simulat
 
 **Why**: testing against a real database catches issues that H2 in MySQL/PostgreSQL mode misses (SQL dialect differences, real constraints, ID sequences). The Testcontainers overhead is acceptable for the confidence it provides.
 
-## Tests
-
-```bash
-# Run all tests (requires Docker)
-./gradlew test
-```
-
-**Current coverage**: 101 tests (unit + integration), 0 failures.
-
-- **Unit**: `MockitoExtension`, no Spring context. Each sender and service tested in isolation.
-- **Integration**: `Testcontainers` (real PostgreSQL) + `WireMock` (external API) + `WebTestClient` (HTTP).
-
 ## Adding a New Channel
 
 The system is designed for extensibility without modifying existing logic:
@@ -187,3 +208,18 @@ The system is designed for extensibility without modifying existing logic:
    ```
 
 That's it. Spring auto-registers the new `@Component` and the `ChannelDispatcher` picks it up without touching any other class.
+
+## Areas to Improve
+
+These are tradeoffs and improvements I'd make with more time:
+
+- **Database migrations**: replace `ddl-auto=update` with Flyway or Liquibase for production-grade schema versioning
+- **Error handling**: adopt RFC 7807 Problem Details (`application/problem+json`) for structured, machine-readable error responses
+- **Seed data**: add a seed migration or data initializer so the app starts with sample users and notifications
+- **CI/CD**: add a GitHub Actions pipeline to run tests, check coverage, and build on every push
+- **Rate limiting**: protect auth endpoints against brute-force attacks
+- **Deployment**: deploy to a cloud provider (Render, Fly.io, or Railway) for a live demo URL
+
+## Known Issues
+
+None at this time.
