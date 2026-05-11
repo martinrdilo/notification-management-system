@@ -59,6 +59,12 @@ public class User {
     private String passwordHash;
 
     @Column
+    private String phone;
+
+    @Column(name = "device_token")
+    private String deviceToken;
+
+    @Column
     private LocalDateTime createdAt;
 
     @PrePersist
@@ -74,6 +80,7 @@ public class User {
 - **`email` como identificador único**: el `email` es la clave de autenticación (`username` en términos de Spring Security). El campo `username` es un nombre de display.
 - **`@PrePersist`**: `createdAt` se asigna automáticamente antes de cada `INSERT`. No se puede pasar desde afuera.
 - **Sin campo `roles`**: la aplicación no implementa autorización por roles. Todos los usuarios autenticados tienen los mismos permisos.
+- **Campos `phone` y `deviceToken` (nullable)**: agregados para que los senders SMS y Push puedan registrar el número de teléfono y validar el token de dispositivo respectivamente. Ambos son opcionales para mantener compatibilidad con usuarios existentes.
 
 ---
 

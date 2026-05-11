@@ -156,7 +156,7 @@ Integration tests use real PostgreSQL via Testcontainers and WireMock to simulat
 ./gradlew test
 ```
 
-**Current coverage**: 69 tests (unit + integration), 0 failures.
+**Current coverage**: 95 tests (unit + integration), 0 failures.
 
 - **Unit**: `MockitoExtension`, no Spring context. Each sender and service tested in isolation.
 - **Integration**: `Testcontainers` (real PostgreSQL) + `WireMock` (external API) + `WebTestClient` (HTTP).

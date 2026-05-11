@@ -105,7 +105,7 @@ public class EmailChannelSender implements ChannelSender {
 
 #### SmsChannelSender
 
-Truncates content to 160 characters (the SMS character limit). Logs the timestamp and truncated content.
+Truncates content to 160 characters (the SMS character limit). Logs the user's phone number, timestamp, and truncated content. Logs a warning if the user has no phone number set.
 
 ```java
 @Component
@@ -116,7 +116,12 @@ public class SmsChannelSender implements ChannelSender {
     public void send(Notification notification) {
         String content = notification.getContent();
         String truncated = content.substring(0, Math.min(content.length(), 160));
-        log.info("SMS sent at {}: {}", Instant.now(), truncated);
+        String phone = notification.getUser().getPhone();
+        if (phone != null) {
+            log.info("SMS sent to {} at {}: {}", phone, Instant.now(), truncated);
+        } else {
+            log.warn("No phone number for user {}", notification.getUser().getId());
+        }
     }
 
     @Override
@@ -128,7 +133,7 @@ public class SmsChannelSender implements ChannelSender {
 
 #### PushChannelSender
 
-Formats a JSON payload with title and content. Logs the dispatch.
+Validates that the user has a non-null device token. Throws `IllegalStateException` if absent (causing the notification to get FAILED status). Formats a JSON payload with title and content and logs the dispatch with the device token.
 
 ```java
 @Component
@@ -137,11 +142,15 @@ public class PushChannelSender implements ChannelSender {
 
     @Override
     public void send(Notification notification) {
+        String deviceToken = notification.getUser().getDeviceToken();
+        if (deviceToken == null) {
+            throw new IllegalStateException("No device token");
+        }
         String payload = String.format(
             "{\"title\":\"%s\",\"content\":\"%s\"}",
             notification.getTitle(), notification.getContent()
         );
-        log.info("Push notification dispatched: {}", payload);
+        log.info("Push notification dispatched to device {}: {}", deviceToken, payload);
     }
 
     @Override
@@ -374,6 +383,9 @@ sequenceDiagram
 | Notification not found | GET/PUT/DELETE /{id} | 404 | `{"status":404,"error":"Notification not found"}` |
 | Owned by another user | GET/PUT/DELETE /{id} | 403 | `{"status":403,"error":"Access denied"}` |
 | Blank title on create | POST /notifications | 400 | `{"status":400,"error":"Validation failed","errors":{"title":"..."}}` |
+| Blank content on create | POST /notifications | 400 | `{"status":400,"error":"Validation failed","errors":{"content":"..."}}` |
+| Invalid channel on create | POST /notifications | 400 | JSON parse error (Jackson deserialization) |
+| Null channel on create | POST /notifications | 400 | `{"status":400,"error":"Validation failed","errors":{"channel":"..."}}` |
 | Blank title on update | PUT /notifications/{id} | 400 | `{"status":400,"error":"Validation failed","errors":{"title":"..."}}` |
 | Channel dispatch fails | POST /notifications | 201 (created) | Notification with status FAILED |
 | Delete own notification | DELETE /notifications/{id} | 204 | Empty body |
@@ -384,17 +396,21 @@ The dispatch failure case is intentional: the notification WAS created. The clie
 
 ## 7. Test Coverage
 
-### New Unit Tests (8)
+### New Unit Tests (14)
 
 | Test Class | Scenarios |
 |------------|-----------|
 | `EmailChannelSenderTest` | Null email → exception, valid email → logged |
-| `SmsChannelSenderTest` | Within limit (no truncation), exceeds limit (truncated), exact 160 chars |
-| `PushChannelSenderTest` | JSON payload format verified |
+| `SmsChannelSenderTest` | Within limit (no truncation), exceeds limit (truncated), exact 160 chars, phone present in log, null phone → warning |
+| `PushChannelSenderTest` | JSON payload format verified, deviceToken present → dispatched, null deviceToken → exception |
 | `ChannelDispatcherTest` | Correct sender dispatched, no sender for channel → exception |
 | `NotificationServiceUnitTest` | findOwnNotification (found, 404, 403), getMyNotifications (with data, empty), updateNotification, deleteNotification |
+| `UserTest` | Phone getter/setter, null phone by default, deviceToken getter/setter, null deviceToken by default |
+| `RegisterRequestTest` | Optional phone and deviceToken accepted, both default to null |
+| `UserResponseTest` | Phone and deviceToken included in response record |
+| `UserBuilderTest` | withPhone() sets phone, withDeviceToken() sets device token |
 
-### New Integration Tests (21)
+### New Integration Tests (31)
 
 | Scenario | Status |
 |----------|--------|
@@ -406,6 +422,11 @@ The dispatch failure case is intentional: the notification WAS created. The clie
 | POST /notifications — EMAIL channel | 201, status SENT |
 | POST /notifications — SMS with >160 chars | 201, status SENT |
 | POST /notifications — PUSH channel | 201, status SENT |
+| POST /notifications — blank title | 400 |
+| POST /notifications — blank content | 400 |
+| POST /notifications — whitespace-only title | 400 |
+| POST /notifications — invalid channel string | 400 |
+| POST /notifications — null channel | 400 |
 | PUT /notifications/{id} — update fields | 200, updated data |
 | PUT /notifications/{id} — no token | 401 |
 | PUT /notifications/{id} — other user's | 403 |
@@ -416,7 +437,7 @@ The dispatch failure case is intentional: the notification WAS created. The clie
 | DELETE /notifications/{id} — other user's | 403 |
 | DELETE /notifications/{id} — not found | 404 |
 
-**Total**: 69 tests (34 baseline + 35 new), 0 failures.
+**Total**: 95 tests (69 baseline + 26 new), 0 failures.
 
 ---
 
@@ -453,7 +474,7 @@ src/main/java/io/backend/notifications/
 │   ├── AuthResponse.java
 │   ├── EnrichedNotificationResponse.java
 │   ├── LoginRequest.java
-│   ├── NotificationRequest.java
+│   ├── NotificationRequest.java         # @NotBlank title/content, Channel enum with @NotNull
 │   ├── NotificationUpdateRequest.java   # ★ NEW — no channel field
 │   ├── RegisterRequest.java
 │   ├── UserRequest.java
