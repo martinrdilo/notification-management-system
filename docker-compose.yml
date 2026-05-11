@@ -11,6 +11,26 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: notification_api
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/notification_db
+      DB_USERNAME: notification_user
+      DB_PASSWORD: notification_password
+      JWT_SECRET: change-me-to-a-secure-random-string
+    restart: unless-stopped
 
 volumes:
   postgres_data:

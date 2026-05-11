@@ -1,0 +1,11 @@
+.gradle
+build
+.git
+.gitignore
+*.md
+.env
+.env.test
+.env.example
+.dockerignore
+docker-compose.yml
+Dockerfile
