@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  coveralls: coveralls/coveralls@2.2.5
+
 jobs:
   test:
     # Machine executor: full VM with native Docker.
@@ -31,13 +34,17 @@ jobs:
           name: Run tests
           # --no-daemon prevents the Gradle daemon from lingering
           # after the job finishes and holding the executor.
-          command: ./gradlew test --no-daemon
+          command: ./gradlew test jacocoTestReport --no-daemon
 
       - save_cache:
           paths:
             - ~/.gradle/caches
             - ~/.gradle/wrapper
           key: gradle-cache-v1-{{ checksum "build.gradle" }}
+
+      - coveralls/upload:
+          coverage_file: build/reports/jacoco/test/jacocoTestReport.xml
+          coverage_format: jacoco
 
       # Store test reports as artifacts for post-mortem debugging.
       - store_test_results:
