@@ -1,0 +1,56 @@
+version: 2.1
+
+jobs:
+  test:
+    # Machine executor: full VM with native Docker.
+    # Testcontainers needs access to the Docker socket to spin up
+    # PostgreSQL containers — the machine executor provides this cleanly.
+    machine:
+      image: ubuntu-2204:current
+    # Ryuk (Testcontainers' cleanup sidecar) is disabled in CI —
+    # it's unneeded here and causes timeouts.
+    environment:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+    steps:
+      - checkout
+
+      - run:
+          name: Install Java 21
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y openjdk-21-jdk
+
+      # Gradle dependency cache: avoids re-downloading jars on every build.
+      # The cache key includes build.gradle — unchanged deps = cache hit.
+      - restore_cache:
+          keys:
+            - gradle-cache-v1-{{ checksum "build.gradle" }}
+            - gradle-cache-v1-
+
+      - run:
+          name: Run tests
+          # --no-daemon prevents the Gradle daemon from lingering
+          # after the job finishes and holding the executor.
+          command: ./gradlew test --no-daemon
+
+      - save_cache:
+          paths:
+            - ~/.gradle/caches
+            - ~/.gradle/wrapper
+          key: gradle-cache-v1-{{ checksum "build.gradle" }}
+
+      # Store test reports as artifacts for post-mortem debugging.
+      - store_test_results:
+          path: build/test-results/test
+
+      - store_artifacts:
+          path: build/reports/tests
+          destination: test-reports
+
+workflows:
+  ci:
+    jobs:
+      - test:
+          filters:
+            branches:
+              only: main
