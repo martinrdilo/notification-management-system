@@ -1,6 +1,7 @@
 # Notification Management System
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/martinrdilo/notification-management-system/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/martinrdilo/notification-management-system/tree/main)
+[![Coverage Status](https://coveralls.io/repos/github/martinrdilo/notification-management-system/badge.svg?branch=main)](https://coveralls.io/github/martinrdilo/notification-management-system?branch=main)
 
 REST API for notification management with JWT authentication and simulated multi-channel delivery (Email, SMS, Push). Built as a take-home technical challenge.
 
