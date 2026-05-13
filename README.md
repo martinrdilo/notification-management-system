@@ -1,5 +1,7 @@
 # Notification Management System
 
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/martinrdilo/notification-management-system/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/martinrdilo/notification-management-system/tree/main)
+
 REST API for notification management with JWT authentication and simulated multi-channel delivery (Email, SMS, Push). Built as a take-home technical challenge.
 
 ## Features
@@ -216,7 +218,7 @@ These are tradeoffs and improvements I'd make with more time:
 - **Database migrations**: replace `ddl-auto=update` with Flyway or Liquibase for production-grade schema versioning
 - **Error handling**: adopt RFC 7807 Problem Details (`application/problem+json`) for structured, machine-readable error responses
 - **Seed data**: add a seed migration or data initializer so the app starts with sample users and notifications
-- **CI/CD**: add a GitHub Actions pipeline to run tests, check coverage, and build on every push
+- **CI/CD**: ~add a GitHub Actions pipeline~ ✅ Tests run on every push to `main` via CircleCI. Deployment remains to be set up
 - **Rate limiting**: protect auth endpoints against brute-force attacks
 - **Deployment**: deploy to a cloud provider (Render, Fly.io, or Railway) for a live demo URL
 
