@@ -5,6 +5,18 @@
 
 REST API for notification management with JWT authentication and simulated multi-channel delivery (Email, SMS, Push). Built as a take-home technical challenge.
 
+## 🚀 Live Demo
+
+A running instance is deployed on Railway — no setup required:
+
+**[🔗 Open Swagger](https://feisty-gratitude-production-a5d2.up.railway.app/swagger-ui/index.html)**
+
+How to test:
+1. **Register**: `POST /auth/register` with a username, email, and password
+2. **Login**: `POST /auth/login` with the same credentials — copy the JWT token from the response
+3. **Authorize**: Click the 🔒 **Authorize** button in Swagger, paste the token, and click Authorize
+4. **Try it out**: all authenticated endpoints are now available — create notifications, list them, update, delete
+
 ## Features
 
 - **User registration & login** with JWT authentication (stateless)
@@ -13,23 +25,6 @@ REST API for notification management with JWT authentication and simulated multi
 - **Ownership enforcement**: users can only access their own notifications (IDOR protection)
 - **Open/Closed Principle**: adding a new channel requires zero changes to existing code
 - **Swagger UI**: interactive API documentation at `/swagger-ui.html`
-
-## Stack
-
-| Layer | Technology |
-|-------|------------|
-| Language | Java 21 |
-| Framework | Spring Boot 3.5.0 |
-| Security | Spring Security + JJWT 0.12.6 (stateless) |
-| Persistence | Spring Data JPA + PostgreSQL 16 |
-| API Docs | SpringDoc OpenAPI 2.8.5 (Swagger UI) |
-| Build | Gradle 9.2.1 |
-| Tests | JUnit 5, Testcontainers, WireMock, WebTestClient |
-
-## Prerequisites
-
-- Java 21
-- Docker (for local PostgreSQL and integration tests)
 
 ## Quick Start
 
@@ -47,18 +42,6 @@ docker compose up -d
 ```
 
 The API will be available at `http://localhost:8080`. Swagger UI at `http://localhost:8080/swagger-ui.html`.
-
-## Live Demo
-
-A running instance is deployed on Railway — no setup required:
-
-**[https://feisty-gratitude-production-a5d2.up.railway.app/swagger-ui/index.html](https://feisty-gratitude-production-a5d2.up.railway.app/swagger-ui/index.html)**
-
-How to test:
-1. **Register**: `POST /auth/register` with a username, email, and password
-2. **Login**: `POST /auth/login` with the same credentials — copy the JWT token from the response
-3. **Authorize**: Click the 🔒 **Authorize** button in Swagger, paste the token, and click Authorize
-4. **Try it out**: all authenticated endpoints are now available — create notifications, list them, update, delete
 
 ## API Endpoints
 
@@ -108,6 +91,18 @@ POST /notifications
 }
 ```
 
+## Stack
+
+| Layer | Technology |
+|-------|------------|
+| Language | Java 21 |
+| Framework | Spring Boot 3.5.0 |
+| Security | Spring Security + JJWT 0.12.6 (stateless) |
+| Persistence | Spring Data JPA + PostgreSQL 16 |
+| API Docs | SpringDoc OpenAPI 2.8.5 (Swagger UI) |
+| Build | Gradle 9.2.1 |
+| Tests | JUnit 5, Testcontainers, WireMock, WebTestClient |
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -138,102 +133,62 @@ POST /notifications
 - **Unit**: `MockitoExtension`, no Spring context. Each sender and service tested in isolation.
 - **Integration**: `Testcontainers` (real PostgreSQL) + `WireMock` (external API) + `WebTestClient` (HTTP).
 
+## Architecture Highlights
+
+### Stateless JWT Authentication
+
+Spring Security with a JWT filter and no server-side session (`SessionCreationPolicy.STATELESS`). Every request carries the token in `Authorization: Bearer <token>`. The `JwtAuthFilter` sets the `SecurityContext` before requests reach controllers. Enables horizontal scaling without sticky sessions.
+
+### Strategy Pattern for Channel Delivery (OCP)
+
+Channel delivery uses the Strategy pattern with Spring's auto-discovery. Each channel is a `@Component` implementing `ChannelSender`, and the `ChannelDispatcher` builds a `Map<Channel, ChannelSender>` for O(1) dispatch. Delivery is simulated (logging only), with each channel applying its own validation and formatting.
+
+**Adding a new channel** (e.g. WhatsApp) requires only two steps with zero changes to existing code:
+1. Add `WHATSAPP` to the `Channel` enum
+2. Create `WhatsAppChannelSender implements ChannelSender` as a `@Component`
+
+Spring auto-detects it and the dispatcher picks it up — satisfying the Open/Closed Principle.
+
+### Ownership Enforcement (IDOR protection)
+
+Endpoints that access a notification by ID validate it belongs to the authenticated user via `findOwnNotification(id)`. Mismatch returns **403 Forbidden**; not found returns **404**. Prevents Insecure Direct Object Reference attacks.
+
+### Implicit User Derivation
+
+`GET /notifications` derives the user from the `SecurityContext` instead of exposing a `userId` in the URL. Avoids exposing user IDs in the API — the auth context determines which data is returned.
+
+### Constructor Injection
+
+All dependencies use constructor injection (no `@Autowired`). Dependencies are explicit, objects immutable post-construction, and unit testing with Mockito is trivial without a Spring context.
+
+### Immutable Channel on Update
+
+`PUT /notifications/{id}` uses `NotificationUpdateRequest`, a DTO that excludes the `channel` field. Once dispatched through a channel, it can't be changed — there's no business case for "un-sending."
+
+### Integration Tests with Real Infrastructure
+
+Integration tests use real PostgreSQL via Testcontainers, WireMock for the external API, and `WebTestClient` for HTTP. The database is never mocked. Catches real SQL dialect differences and constraint issues.
+
+> Full reasoning behind each decision → [`docs/06-technical-decisions.md`](docs/06-technical-decisions.md)
+
 ## Documentation
 
-Detailed architecture and testing docs are available in [`docs/`](docs/):
+Detailed docs in [`docs/`](docs/):
 
 - [`01-authentication.md`](docs/01-authentication.md) — JWT flow and security configuration
 - [`02-channel-sending-and-crud.md`](docs/02-channel-sending-and-crud.md) — Strategy pattern for channel dispatch + CRUD operations
 - [`03-testing-infrastructure.md`](docs/03-testing-infrastructure.md) — Testcontainers, WireMock, and test architecture
 - [`04-testing-architecture-diagram.md`](docs/04-testing-architecture-diagram.md) — Visual overview of the test setup
-
-## Technical Decisions
-
-### 1. Stateless JWT Authentication
-
-Spring Security is configured with a JWT filter and no server-side session (`SessionCreationPolicy.STATELESS`). Every request includes the token in the `Authorization: Bearer <token>` header. The `JwtAuthFilter` extracts and validates the token before it reaches controllers, setting the `SecurityContext` with the user's email.
-
-**Why**: REST APIs should not maintain server-side sessions. JWT enables horizontal scaling without sticky sessions.
-
-### 2. Strategy Pattern for Channel Delivery
-
-Channel delivery logic uses the Strategy pattern with Spring's auto-discovery. A `ChannelSender` interface defines two methods (`send`, `getChannel`) and each channel has its own `@Component` implementation. The `ChannelDispatcher` receives `List<ChannelSender>` via constructor injection and builds a `Map<Channel, ChannelSender>` for O(1) dispatch.
-
-Delivery is **simulated** (logging only) — the challenge asks to simulate steps, not integrate real APIs. Each channel applies its own validation and formatting:
-
-- **Email**: validates `user.getEmail()` is not null, formats a template, logs "Email sent to {email}"
-- **SMS**: truncates content to 160 characters, logs "SMS sent at {timestamp}"
-- **Push**: builds a JSON payload with title and content, logs "Push notification dispatched: {payload}"
-
-**Why**: the key challenge requirement is _"the logic must be designed so that adding a new channel does not require modifying existing logic."_ With this design, adding a new channel (e.g., WhatsApp) requires just two steps: (1) add `WHATSAPP` to the `Channel` enum, (2) create `WhatsAppChannelSender implements ChannelSender` as a `@Component`. Spring auto-detects it and the `ChannelDispatcher` picks it up without touching a single line of existing code. This satisfies the Open/Closed Principle (OCP).
-
-### 3. Ownership Enforcement
-
-Every endpoint that accesses a notification by ID (`GET /{id}`, `PUT /{id}`, `DELETE /{id}`) validates that the notification belongs to the authenticated user via the `findOwnNotification(id)` helper. This method compares `notification.user.email` with the email from the `SecurityContext`. If they don't match, it returns **403 Forbidden**. If the notification doesn't exist, it returns **404 Not Found**.
-
-**Why**: endpoints that expose IDs in the URL are vulnerable to Insecure Direct Object Reference (IDOR). Without this check, a user could access another user's notifications by simply iterating IDs.
-
-### 4. GET /notifications Without userId in Path
-
-The endpoint for listing own notifications (`GET /notifications`) derives the user from the `SecurityContext`, without requiring a `userId` in the URL. This avoids exposing user IDs in the API and follows the principle that the auth context determines the returned data.
-
-**Why**: `GET /notifications/user/{userId}` allows any authenticated user to specify an arbitrary ID. Even though the backend validates ownership, exposing IDs in the URL is a poor REST practice. The correct endpoint uses the auth context implicitly.
-
-### 5. Constructor Injection
-
-The entire application uses constructor injection (no `@Autowired`). This makes dependencies explicit, objects immutable after construction, and unit testing trivial without a Spring context.
-
-**Why**: this has been the Spring team's recommended practice since 2014. It makes testing with Mockito (`@ExtendWith(MockitoExtension.class)`) straightforward without booting the full context.
-
-### 6. Immutable Channel on PUT
-
-The update endpoint (`PUT /notifications/{id}`) uses `NotificationUpdateRequest`, a DTO that **excludes the `channel` field**. Once a notification is created and dispatched through a channel, that channel is immutable.
-
-**Why**: changing the channel post-dispatch makes no business sense (the Email delivery logic already ran — you can't "un-send"). The update DTO is explicit about which fields are modifiable.
-
-### 7. Integration Tests with Real Infrastructure
-
-Integration tests use real PostgreSQL via Testcontainers and WireMock to simulate the external photo API. The database is never mocked. `AbstractIntegrationTest` provides shared infrastructure (singleton PostgreSQL container, WireMock on a dynamic port, `WebTestClient` for HTTP requests, FK-safe database cleanup between tests).
-
-**Why**: testing against a real database catches issues that H2 in MySQL/PostgreSQL mode misses (SQL dialect differences, real constraints, ID sequences). The Testcontainers overhead is acceptable for the confidence it provides.
-
-## Adding a New Channel
-
-The system is designed for extensibility without modifying existing logic:
-
-1. Add the new value to the `Channel` enum (`src/main/java/.../enums/Channel.java`)
-2. Create a class implementing `ChannelSender`:
-   ```java
-   @Component
-   public class WhatsAppChannelSender implements ChannelSender {
-       private static final Logger log = LoggerFactory.getLogger(WhatsAppChannelSender.class);
-
-       @Override
-       public void send(Notification notification) {
-           // Validate channel-specific requirements
-           // Format payload
-           log.info("WhatsApp message sent to user {}", notification.getUser().getId());
-       }
-
-       @Override
-       public Channel getChannel() {
-           return Channel.WHATSAPP;
-       }
-   }
-   ```
-
-That's it. Spring auto-registers the new `@Component` and the `ChannelDispatcher` picks it up without touching any other class.
+- [`06-technical-decisions.md`](docs/06-technical-decisions.md) — Detailed reasoning behind all architectural decisions
 
 ## Areas to Improve
 
-These are tradeoffs and improvements I'd make with more time:
+Tradeoffs and improvements I'd make with more time:
 
 - **Database migrations**: replace `ddl-auto=update` with Flyway or Liquibase for production-grade schema versioning
 - **Error handling**: adopt RFC 7807 Problem Details (`application/problem+json`) for structured, machine-readable error responses
 - **Seed data**: add a seed migration or data initializer so the app starts with sample users and notifications
-- **CI/CD**: ~add a GitHub Actions pipeline~ ✅ Tests run on every push to `main` via CircleCI. Deployment remains to be set up
 - **Rate limiting**: protect auth endpoints against brute-force attacks
-- **Deployment**: ~deploy to a cloud provider~ ✅ Live demo deployed on Railway (see [Live Demo](#live-demo) above)
 
 ## Known Issues
 
