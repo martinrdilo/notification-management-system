@@ -48,6 +48,18 @@ docker compose up -d
 
 The API will be available at `http://localhost:8080`. Swagger UI at `http://localhost:8080/swagger-ui.html`.
 
+## Live Demo
+
+A running instance is deployed on Railway — no setup required:
+
+**[https://feisty-gratitude-production-a5d2.up.railway.app/swagger-ui/index.html](https://feisty-gratitude-production-a5d2.up.railway.app/swagger-ui/index.html)**
+
+How to test:
+1. **Register**: `POST /auth/register` with a username, email, and password
+2. **Login**: `POST /auth/login` with the same credentials — copy the JWT token from the response
+3. **Authorize**: Click the 🔒 **Authorize** button in Swagger, paste the token, and click Authorize
+4. **Try it out**: all authenticated endpoints are now available — create notifications, list them, update, delete
+
 ## API Endpoints
 
 ### Authentication (`/auth`)
@@ -221,7 +233,7 @@ These are tradeoffs and improvements I'd make with more time:
 - **Seed data**: add a seed migration or data initializer so the app starts with sample users and notifications
 - **CI/CD**: ~add a GitHub Actions pipeline~ ✅ Tests run on every push to `main` via CircleCI. Deployment remains to be set up
 - **Rate limiting**: protect auth endpoints against brute-force attacks
-- **Deployment**: deploy to a cloud provider (Render, Fly.io, or Railway) for a live demo URL
+- **Deployment**: ~deploy to a cloud provider~ ✅ Live demo deployed on Railway (see [Live Demo](#live-demo) above)
 
 ## Known Issues
 
