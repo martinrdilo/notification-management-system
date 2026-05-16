@@ -21,11 +21,11 @@ class UserResponseTest {
     }
 
     @Test
-    @DisplayName("should default phone and deviceToken to null")
-    void shouldDefaultPhoneAndDeviceTokenToNull() {
+    @DisplayName("should accept empty phone string (migration default)")
+    void shouldAcceptEmptyPhoneFromMigrationDefault() {
         var now = LocalDateTime.now();
-        var resp = new UserResponse(1L, "user1", "u1@test.com", now, null, null);
-        assertThat(resp.phone()).isNull();
+        var resp = new UserResponse(1L, "user1", "u1@test.com", now, "", null);
+        assertThat(resp.phone()).isEmpty();
         assertThat(resp.deviceToken()).isNull();
     }
 }

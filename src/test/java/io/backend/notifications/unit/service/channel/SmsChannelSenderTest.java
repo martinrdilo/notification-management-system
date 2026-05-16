@@ -68,12 +68,11 @@ class SmsChannelSenderTest {
     }
 
     @Test
-    @DisplayName("should log warning when phone is null")
-    void shouldLogWarningWhenPhoneNull() {
+    @DisplayName("should log info level even when phone is null (no null-guard)")
+    void shouldLogInfoEvenWhenPhoneIsNull() {
         String content = "Some message";
         User user = mock(User.class);
         when(user.getPhone()).thenReturn(null);
-        when(user.getId()).thenReturn(42L);
 
         Notification notification = mock(Notification.class);
         when(notification.getContent()).thenReturn(content);
@@ -85,10 +84,10 @@ class SmsChannelSenderTest {
                 .hasSize(1)
                 .first()
                 .satisfies(event -> {
-                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getLevel()).isEqualTo(Level.INFO);
                     assertThat(event.getFormattedMessage())
-                            .contains("No phone number for user")
-                            .contains("42");
+                            .contains("SMS sent to null")
+                            .contains("Some message");
                 });
     }
 

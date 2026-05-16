@@ -22,11 +22,7 @@ public class SmsChannelSender implements ChannelSender {
         String content = notification.getContent();
         String truncated = content.substring(0, Math.min(content.length(), 160));
         String phone = notification.getUser().getPhone();
-        if (phone != null) {
-            log.info("SMS sent to {} at {}: {}", phone, Instant.now(), truncated);
-        } else {
-            log.warn("No phone number for user {}", notification.getUser().getId());
-        }
+        log.info("SMS sent to {} at {}: {}", phone, Instant.now(), truncated);
     }
 
     @Override
