@@ -97,3 +97,27 @@ Los tests de integración usan PostgreSQL real via Testcontainers y WireMock par
 Para más detalle sobre la infraestructura de testing, ver:
 - [`03-testing-infrastructure.md`](./03-testing-infrastructure.md)
 - [`04-testing-architecture-diagram.md`](./04-testing-architecture-diagram.md)
+
+---
+
+## 8. Flyway para Migraciones de Schema
+
+La base de datos usa **Flyway** con PostgreSQL para manejar el schema de forma versionada. Hibernate está configurado con `ddl-auto: validate` en producción y `ddl-auto: none` en tests — nunca modifica la base de datos automáticamente.
+
+### Cómo agregar una migración nueva
+
+1. Crear un archivo en `src/main/resources/db/migration/V{numero}__{descripcion}.sql`
+2. Escribir el DDL con SQL puro
+3. Al iniciar la app, Flyway aplica las migraciones pendientes en orden y registra el historial en `flyway_schema_history`
+
+### Por qué Flyway y no Liquibase
+
+- **Simplicidad**: SQL puro, sin DSL en XML/YAML/JSON. Cualquier dev lo entiende.
+- **Spring Boot auto-config**: cero código de configuración, solo la dependencia en `build.gradle`.
+- **Proyecto chico**: 2 entidades, 3 tablas — Liquibase sería sobreingeniería.
+- **Fix-forward**: si una migración tiene un error, se corrige con una migración nueva (V3 arregla V2). Flyway open-source no tiene rollback, lo cual fuerza buenas prácticas de no perder datos.
+
+### Por qué `validate` en prod y `none` en tests
+
+- **`validate` en prod**: Hibernate compara entidades con la DB al iniciar. Si hay drift, la app no arranca — falla temprano, con error claro.
+- **`none` en tests**: Flyway es la única fuente de verdad del schema. Si la migración está rota, los tests fallan en CI antes de llegar a producción. Con `create-drop`, Hibernate hubiera "arreglado" el bug silenciosamente.
