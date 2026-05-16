@@ -8,6 +8,6 @@ public record RegisterRequest(
         @NotBlank @Size(max = 50) String username,
         @NotBlank @Email String email,
         @NotBlank @Size(min = 8) String password,
-        String phone,
+        @NotBlank String phone,
         String deviceToken
 ) {}

@@ -153,6 +153,42 @@ class AuthControllerIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void shouldReturn400WhenPhoneIsNull() {
+        RegisterRequest request = new RegisterRequest("validuser", "valid@test.com", "password123", null, null);
+
+        webTestClient().post()
+                .uri("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenPhoneIsEmpty() {
+        RegisterRequest request = new RegisterRequest("validuser", "valid@test.com", "password123", "", null);
+
+        webTestClient().post()
+                .uri("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void shouldReturn400WhenPhoneIsBlank() {
+        RegisterRequest request = new RegisterRequest("validuser", "valid@test.com", "password123", "   ", null);
+
+        webTestClient().post()
+                .uri("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
     void shouldPersistPhoneAndDeviceTokenOnRegistration() {
         UserBuilder builder = UserBuilder.aUser()
                 .withPhone("+5491112345678")

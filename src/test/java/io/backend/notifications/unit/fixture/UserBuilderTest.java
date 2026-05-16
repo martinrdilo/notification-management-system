@@ -22,11 +22,20 @@ class UserBuilderTest {
     }
 
     @Test
-    @DisplayName("should default phone and deviceToken to null in RegisterRequest")
-    void shouldDefaultPhoneAndDeviceTokenToNullInRegisterRequest() {
+    @DisplayName("should default phone to +5491100000000 in RegisterRequest")
+    void shouldDefaultPhoneInRegisterRequest() {
         var reg = UserBuilder.aUser().buildRegisterRequest();
 
-        assertThat(reg.phone()).isNull();
+        assertThat(reg.phone()).isEqualTo("+5491100000000");
         assertThat(reg.deviceToken()).isNull();
+    }
+
+    @Test
+    @DisplayName("should default phone to +5491100000000 in built entity")
+    void shouldDefaultPhoneInBuiltEntity() {
+        var user = UserBuilder.aUser().build();
+
+        assertThat(user.getPhone()).isEqualTo("+5491100000000");
+        assertThat(user.getDeviceToken()).isNull();
     }
 }

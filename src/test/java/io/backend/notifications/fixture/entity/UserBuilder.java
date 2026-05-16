@@ -22,7 +22,7 @@ public final class UserBuilder {
     private String username;
     private String email;
     private String password = "password123";
-    private String phone;
+    private String phone = "+5491100000000";
     private String deviceToken;
 
     private UserBuilder() {
@@ -69,6 +69,7 @@ public final class UserBuilder {
         User user = new User();
         user.setUsername(username);
         user.setEmail(email);
+        user.setPhone(phone);
         // Placeholder hash to satisfy NOT NULL constraint in tests that bypass auth
         user.setPasswordHash("$2a$10$placeholder.hash.for.testing.only");
         return user;
