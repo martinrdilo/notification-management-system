@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'io.backend.challenge'
-version = '0.0.1-SNAPSHOT'
+version = project.findProperty('appVersion') ?: '0.0.1-SNAPSHOT'
 description = 'cursor backend challenge'
 
 java {
