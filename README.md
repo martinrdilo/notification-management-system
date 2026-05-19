@@ -190,6 +190,40 @@ Tradeoffs and improvements I'd make with more time:
 - **Seed data**: add a seed migration or data initializer so the app starts with sample users and notifications
 - **Rate limiting**: protect auth endpoints against brute-force attacks
 
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/) (MAJOR.MINOR.PATCH). The version is stored in `gradle.properties`:
+
+```properties
+appVersion=0.1.0
+```
+
+### Release workflow
+
+**During development**: update `CHANGELOG.md` under the `[Unreleased]` section as you merge changes. Do not touch the version number.
+
+**When releasing** (on `main`):
+
+1. **Bump the version** in `gradle.properties` according to SemVer:
+   - Bug fix → patch bump (`0.1.0` → `0.1.1`)
+   - New feature, backward-compatible → minor bump (`0.1.0` → `0.2.0`)
+   - Breaking change → major bump (`0.1.0` → `1.0.0`)
+
+2. **Close the changelog**: rename `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD` and add a fresh `[Unreleased]` section at the top.
+
+3. **Commit and tag**:
+   ```bash
+   git add gradle.properties CHANGELOG.md
+   git commit -m "release: v0.2.0"
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   git push origin main --tags
+   ```
+
+The Gradle build reads the version automatically:
+```groovy
+version = project.findProperty('appVersion') ?: '0.0.1-SNAPSHOT'
+```
+
 ## Known Issues
 
 None at this time.
